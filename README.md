@@ -7,6 +7,7 @@ Jogo da memória bíblico para crianças (pensado para 7 anos). Em cada fase a c
 - **3 fases:** 4, 6 e 8 pares de animais.
 - **Estrelas:** quanto menos jogadas, mais estrelas (de 1 a 3 por fase), mais 1 estrela bônus se acertar a pergunta.
 - **Chuva:** diminui a cada fase e, ao salvar todos os animais, o céu clareia e aparece o arco-íris.
+- **Som:** o botão 🔊/🔇 no topo liga e desliga os sons, e o navegador lembra a escolha.
 - Funciona no celular, no computador e com teclado (Tab e Enter).
 
 ## Jogar online

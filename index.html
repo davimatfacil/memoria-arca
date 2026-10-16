@@ -139,6 +139,28 @@
         color: #f39c12;
     }
 
+    .sound-btn {
+        background: #ffffff;
+        border: 2px solid #ced6e0;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: background 0.2s, border-color 0.2s;
+    }
+
+    .sound-btn:hover {
+        background: #f1f2f6;
+        border-color: #70a1ff;
+    }
+
+    .sound-btn[aria-pressed="false"] {
+        background: #f1f2f6;
+        border-color: #b2bec3;
+    }
+
     /* Área da Arca */
     .ark-container {
         position: relative;
@@ -450,6 +472,7 @@
         <span id="level-display">Fase: 1/3</span>
         <span id="moves-display">Jogadas: 0</span>
         <span class="star-score" id="total-stars-display">⭐ 0</span>
+        <button class="sound-btn" id="sound-btn" type="button" aria-label="Som" aria-pressed="true" title="Ligar ou desligar o som" onclick="toggleSound()">🔊</button>
     </div>
 </header>
 
@@ -559,6 +582,12 @@
     let lockBoard = false;
     let audioCtx = null;
 
+    // Som ligado por padrão; a escolha fica guardada no navegador (try/catch porque o acesso pode falhar)
+    let soundOn = true;
+    try {
+        if (localStorage.getItem('arca-som') === 'off') soundOn = false;
+    } catch (e) { /* sem armazenamento: começa com som ligado */ }
+
     // Algoritmo de Embaralhamento Fisher-Yates (distribuição uniforme O(n))
     function shuffleFisherYates(array) {
         const arr = [...array];
@@ -571,6 +600,7 @@
 
     // Inicializa o áudio apenas após o primeiro toque/clique do usuário
     function playSound(type) {
+        if (!soundOn) return; // som desligado: nem cria o áudio
         try {
             if (!audioCtx) {
                 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -839,6 +869,22 @@
         initLevel();
     }
 
+    function updateSoundButton() {
+        const btn = document.getElementById('sound-btn');
+        btn.textContent = soundOn ? '🔊' : '🔇';
+        btn.setAttribute('aria-pressed', String(soundOn));
+    }
+
+    function toggleSound() {
+        soundOn = !soundOn;
+        try {
+            localStorage.setItem('arca-som', soundOn ? 'on' : 'off');
+        } catch (e) { /* sem armazenamento: vale só nesta visita */ }
+        updateSoundButton();
+        if (soundOn) playSound('flip'); // confirma que o som voltou
+    }
+
+    updateSoundButton();
     initLevel();
 </script>
 </body>
