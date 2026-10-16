@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Arca de Noé - Jogo da Memória</title>
+<style>
+    /* Jogo de memória infantil: céu nublado com chuva que clareia no fim, arca de madeira, cartas laranja. Visual único nos dois temas. */
+    :root {
+        --sky-top: #54a0ff;
+        --sky-bottom: #c8d6e5;
+        --sky-clear-top: #48dbfb;
+        --sky-clear-bottom: #ffffff;
+        --ark-wood: #8b5a2b;
+        --ark-dark: #5c3a1b;
+        --card-border: #ffffff;
+        --text-color: #2c3e50;
+        --focus-ring: #ffdd59;
+    }
+
+    * {
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        background-color: var(--sky-bottom);
+        background-image: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        overflow-x: hidden;
+        color: var(--text-color);
+        position: relative;
+        transition: background 1s ease;
+    }
+
+    body.clear-sky {
+        background-color: var(--sky-clear-bottom);
+        background-image: linear-gradient(to bottom, var(--sky-clear-top), var(--sky-clear-bottom));
+    }
+
+    /* Acessibilidade: Foco visível claro para navegação por teclado */
+    button:focus-visible,
+    .card:focus-visible {
+        outline: 4px solid var(--focus-ring);
+        outline-offset: 3px;
+    }
+
+    /* Chuva de fundo e Arco-íris */
+    .rain-container {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+
+    .raindrop {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.5);
+        width: 2px;
+        height: 18px;
+        top: -20px;
+        animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+        to { transform: translateY(105vh); }
+    }
+
+    .rainbow {
+        position: fixed;
+        top: 60px;
+        width: 340px;
+        max-width: 100%;
+        height: 170px;
+        border-radius: 170px 170px 0 0;
+        box-shadow:
+            0 -10px 0 0 #ff6b6b,
+            0 -20px 0 0 #ff9f43,
+            0 -30px 0 0 #feca57,
+            0 -40px 0 0 #1dd1a1,
+            0 -50px 0 0 #54a0ff,
+            0 -60px 0 0 #5f27cd;
+        opacity: 0;
+        transform: scale(0.8);
+        transition: opacity 1s ease, transform 1s ease;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .rainbow.visible {
+        opacity: 0.85;
+        transform: scale(1.1);
+    }
+
+    /* Cabeçalho e Status */
+    header {
+        text-align: center;
+        padding: 12px max(16px, env(safe-area-inset-right, 0px)) 5px max(16px, env(safe-area-inset-left, 0px));
+        width: 100%;
+        max-width: 600px;
+        z-index: 2;
+    }
+
+    h1 {
+        font-size: 1.75rem;
+        color: #fff;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.35);
+        margin-bottom: 8px;
+    }
+
+    .status-bar {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.92);
+        padding: 8px 15px;
+        border-radius: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+        font-weight: bold;
+        font-size: 0.95rem;
+        flex-wrap: wrap;
+        gap: 8px;
+        color: var(--text-color);
+    }
+
+    .star-score {
+        color: #f39c12;
+    }
+
+    /* Área da Arca */
+    .ark-container {
+        position: relative;
+        width: 92%;
+        max-width: 520px;
+        background: var(--ark-wood);
+        border: 4px solid var(--ark-dark);
+        border-radius: 15px 15px 45px 45px;
+        padding: 8px 12px;
+        margin: 6px 0;
+        box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        text-align: center;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        z-index: 2;
+    }
+
+    .ark-roof {
+        font-size: 0.8rem;
+        color: #ffeaa7;
+        font-weight: bold;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .saved-animals {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        min-height: 36px;
+        align-items: center;
+    }
+
+    .saved-animal-icon {
+        font-size: 1.4rem;
+        animation: bounceIn 0.45s ease;
+        background: rgba(255,255,255,0.22);
+        border-radius: 50%;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Tabuleiro de Cartas */
+    .game-board {
+        display: grid;
+        gap: 10px;
+        width: 92%;
+        max-width: 520px;
+        margin: 8px auto;
+        perspective: 1000px;
+        z-index: 2;
+    }
+
+    .card {
+        background-color: transparent;
+        aspect-ratio: 1 / 1;
+        max-width: 100%;
+        cursor: pointer;
+        position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border-radius: 16px;
+    }
+
+    .card.flipped {
+        transform: rotateY(180deg);
+    }
+
+    .card.matched {
+        transform: rotateY(180deg) scale(0.94);
+        cursor: default;
+    }
+
+    .card-face {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        border: 3px solid var(--card-border);
+        padding: 4px;
+    }
+
+    .card-front {
+        background: linear-gradient(135deg, #ff9f43, #ee5253);
+        color: white;
+        font-size: 2rem;
+    }
+
+    .card-back {
+        background: #ffffff;
+        transform: rotateY(180deg);
+    }
+
+    .card.matched .card-back {
+        background: #d4edda;
+        border-color: #28a745;
+    }
+
+    .animal-emoji {
+        font-size: 2.3rem;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 44px;
+    }
+
+    .animal-name {
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #333;
+        margin-top: 4px;
+    }
+
+    /* Modal de Fim de Fase e Quiz */
+    .modal-overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.65);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        padding: 16px;
+    }
+
+    .modal {
+        background: white;
+        color: var(--text-color);
+        padding: 22px;
+        border-radius: 24px;
+        max-width: 440px;
+        width: 100%;
+        max-height: 100%;
+        overflow-y: auto;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+        animation: bounceIn 0.4s ease;
+    }
+
+    .modal h2 {
+        color: #2e86de;
+        margin-bottom: 6px;
+        font-size: 1.5rem;
+    }
+
+    .stars-earned {
+        font-size: 2.2rem;
+        margin: 6px 0;
+        letter-spacing: 4px;
+    }
+
+    .bible-fact {
+        background: #f1f8ff;
+        border-left: 4px solid #2e86de;
+        padding: 10px 12px;
+        border-radius: 8px;
+        margin: 12px 0;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        color: #2c3e50;
+        text-align: left;
+        white-space: pre-line;
+    }
+
+    /* Seção do Mini-Quiz */
+    .quiz-box {
+        background: #fff9db;
+        border: 2px dashed #f59f00;
+        border-radius: 14px;
+        padding: 12px;
+        margin: 12px 0;
+    }
+
+    .quiz-question {
+        font-weight: bold;
+        font-size: 0.95rem;
+        margin-bottom: 10px;
+        color: #2c3e50;
+    }
+
+    .quiz-options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .quiz-btn {
+        background: #ffffff;
+        border: 2px solid #ced6e0;
+        border-radius: 12px;
+        padding: 10px;
+        font-size: 0.95rem;
+        font-weight: bold;
+        color: #2c3e50;
+        cursor: pointer;
+        transition: background 0.2s, border-color 0.2s;
+    }
+
+    .quiz-btn:hover:not(:disabled) {
+        background: #f1f2f6;
+        border-color: #70a1ff;
+    }
+
+    .quiz-btn.correct {
+        background: #d4edda;
+        border-color: #28a745;
+        color: #155724;
+    }
+
+    .quiz-btn.wrong {
+        background: #f8d7da;
+        border-color: #dc3545;
+        color: #721c24;
+    }
+
+    .quiz-feedback {
+        font-size: 0.85rem;
+        font-weight: bold;
+        margin-top: 8px;
+        min-height: 1.2em;
+    }
+
+    .btn {
+        background: #10ac84;
+        color: white;
+        border: none;
+        padding: 12px 26px;
+        font-size: 1.05rem;
+        font-weight: bold;
+        border-radius: 30px;
+        cursor: pointer;
+        box-shadow: 0 4px 0 #0b7a5d;
+        transition: transform 0.1s, opacity 0.2s;
+        margin-top: 8px;
+    }
+
+    .btn:disabled {
+        background: #b2bec3;
+        box-shadow: 0 4px 0 #636e72;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .btn:active:not(:disabled) {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 #0b7a5d;
+    }
+
+    /* Rodapé */
+    footer {
+        width: 100%;
+        background: #2e86de;
+        color: white;
+        text-align: center;
+        padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+        font-size: 0.85rem;
+        border-top: 4px solid #54a0ff;
+        z-index: 2;
+    }
+
+    @keyframes bounceIn {
+        0% { transform: scale(0.3); opacity: 0; }
+        70% { transform: scale(1.06); opacity: 1; }
+        100% { transform: scale(1); }
+    }
+
+    /* Respeito à preferência de movimento reduzido */
+    @media (prefers-reduced-motion: reduce) {
+        *, ::before, ::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+        .rain-container {
+            display: none !important;
+        }
+    }
+
+    @media (max-width: 400px) {
+        .animal-emoji { font-size: 1.9rem; height: 36px; }
+        .animal-name { font-size: 0.65rem; }
+    }
+</style>
+</head>
+<body>
+
+
+<div class="rain-container" id="rain-container" aria-hidden="true"></div>
+<div class="rainbow" id="rainbow" aria-hidden="true"></div>
+
+<header>
+    <h1>⛵ A Arca de Noé</h1>
+    <div class="status-bar">
+        <span id="level-display">Fase: 1/3</span>
+        <span id="moves-display">Jogadas: 0</span>
+        <span class="star-score" id="total-stars-display">⭐ 0</span>
+    </div>
+</header>
+
+<div class="ark-container" aria-live="polite">
+    <div class="ark-roof">Animais Salvos na Arca</div>
+    <div class="saved-animals" id="saved-animals"></div>
+</div>
+
+<main class="game-board" id="game-board" role="grid" aria-label="Tabuleiro do Jogo da Memória"></main>
+
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+        <h2 id="modal-title">Muito bem!</h2>
+        <div class="stars-earned" id="stars-earned" aria-label="Estrelas conquistadas"></div>
+        <p id="modal-message"></p>
+        <div class="bible-fact" id="bible-fact"></div>
+
+        <!-- Mini-Quiz Bíblico -->
+        <div class="quiz-box" id="quiz-box">
+            <div class="quiz-question" id="quiz-question"></div>
+            <div class="quiz-options" id="quiz-options"></div>
+            <div class="quiz-feedback" id="quiz-feedback" aria-live="polite"></div>
+        </div>
+
+        <button class="btn" id="next-btn" onclick="nextStep()">Próxima Fase ➡️</button>
+    </div>
+</div>
+
+<footer>
+    Encontre os pares para colocar os animais na Arca antes da chuva! 🌧️
+</footer>
+
+<script>
+    // SVG customizado para a Pomba com raminho de oliveira (evita variação de emoji entre celulares)
+    const doveSVG = `
+        <svg width="40" height="40" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M48 26C48 18 42 14 36 14C30 14 27 19 24 22C18 16 10 14 6 16C8 24 14 28 20 30C14 34 10 40 12 44C20 44 26 40 32 40C42 40 50 34 48 26Z" fill="#EDF2F7" stroke="#4A5568" stroke-width="3" stroke-linejoin="round"/>
+            <circle cx="41" cy="22" r="2.5" fill="#2D3748"/>
+            <path d="M48 23L55 21L48 26Z" fill="#F6AD55" stroke="#DD6B20" stroke-width="1.5"/>
+            <path d="M52 22C56 17 60 17 62 19" stroke="#38A169" stroke-width="2.5" stroke-linecap="round"/>
+            <ellipse cx="56" cy="17" rx="3" ry="1.8" transform="rotate(-20 56 17)" fill="#48BB78"/>
+            <ellipse cx="60" cy="21" rx="3" ry="1.8" transform="rotate(25 60 21)" fill="#48BB78"/>
+        </svg>
+    `;
+
+    const allAnimals = [
+        { icon: '🦁', name: 'Leão', isSvg: false },
+        { icon: '🐘', name: 'Elefante', isSvg: false },
+        { icon: '🦒', name: 'Girafa', isSvg: false },
+        { icon: '🦓', name: 'Zebra', isSvg: false },
+        { icon: doveSVG, name: 'Pomba', isSvg: true, miniIcon: '🐦' },
+        { icon: '🐢', name: 'Tartaruga', isSvg: false },
+        { icon: '🐑', name: 'Ovelha', isSvg: false },
+        { icon: '🐒', name: 'Macaco', isSvg: false }
+    ];
+
+    const levels = [
+        {
+            pairs: 4,
+            cols: 4,
+            drops: 28,
+            threeStarMoves: 6,
+            twoStarMoves: 9,
+            title: "Fase 1 Concluída! 🌦️",
+            fact: "📖 Gênesis 6:14 (NVT)\n“Construa uma grande embarcação, uma arca de madeira de cipreste, e cubra-a com betume por dentro e por fora, para que não entre água. Divida toda a parte interna em pisos e compartimentos.”",
+            quiz: {
+                question: "O que Deus pediu para Noé construir?",
+                options: ["Uma grande Arca de madeira", "Um castelo de pedras", "Um barco de ferro"],
+                correct: 0
+            }
+        },
+        {
+            pairs: 6,
+            cols: 4,
+            drops: 16,
+            threeStarMoves: 10,
+            twoStarMoves: 14,
+            title: "Fase 2 Concluída! ⛵",
+            fact: "📖 Gênesis 7:9 (NVT)\n“Entraram na arca em pares, macho e fêmea, como Deus tinha ordenado a Noé.”",
+            quiz: {
+                question: "Como os animais entraram na Arca?",
+                options: ["Em pares, macho e fêmea", "Todos correndo sozinhos", "Voando pelas janelas"],
+                correct: 0
+            }
+        },
+        {
+            pairs: 8,
+            cols: 4,
+            drops: 8,
+            threeStarMoves: 14,
+            twoStarMoves: 20,
+            title: "Todos salvos na Arca! 🌈",
+            fact: "📖 Gênesis 8:11 (NVT)\n“Quando ela voltou ao entardecer, trouxe no bico uma folha nova de oliveira. Noé concluiu que restava pouca água do dilúvio.”\n\n📖 Gênesis 9:13 (NVT)\n“Coloquei o arco-íris nas nuvens. Ele é o sinal da minha aliança com toda a terra.”",
+            quiz: {
+                question: "O que a pombinha trouxe no bico para Noé (Gênesis 8:11)?",
+                options: ["Uma folha nova de oliveira", "Uma flor amarela", "Um peixinho"],
+                correct: 0
+            }
+        }
+    ];
+
+    let currentLevel = 0;
+    let moves = 0;
+    let matchedPairs = 0;
+    let totalStars = 0;
+    let flippedCards = [];
+    let lockBoard = false;
+    let audioCtx = null;
+
+    // Algoritmo de Embaralhamento Fisher-Yates (distribuição uniforme O(n))
+    function shuffleFisherYates(array) {
+        const arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // Inicializa o áudio apenas após o primeiro toque/clique do usuário
+    function playSound(type) {
+        try {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            if (type === 'flip') {
+                osc.frequency.setValueAtTime(420, now);
+                gain.gain.setValueAtTime(0.08, now);
+                osc.start(now);
+                osc.stop(now + 0.07);
+            } else if (type === 'match') {
+                osc.frequency.setValueAtTime(523.25, now); // Dó
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // Mi
+                gain.gain.setValueAtTime(0.12, now);
+                osc.start(now);
+                osc.stop(now + 0.24);
+            } else if (type === 'win') {
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.setValueAtTime(554.37, now + 0.12);
+                osc.frequency.setValueAtTime(659.25, now + 0.24);
+                gain.gain.setValueAtTime(0.15, now);
+                osc.start(now);
+                osc.stop(now + 0.45);
+            } else if (type === 'bonus') {
+                osc.frequency.setValueAtTime(587.33, now);
+                osc.frequency.setValueAtTime(880, now + 0.12);
+                gain.gain.setValueAtTime(0.15, now);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        } catch (e) {
+            // Ignora silenciosamente se o dispositivo bloquear áudio
+        }
+    }
+
+    function createRain(dropsCount) {
+        const container = document.getElementById('rain-container');
+        container.innerHTML = '';
+        for (let i = 0; i < dropsCount; i++) {
+            const drop = document.createElement('div');
+            drop.classList.add('raindrop');
+            drop.style.left = `${Math.random() * 100}vw`;
+            drop.style.animationDuration = `${0.7 + Math.random() * 0.6}s`;
+            drop.style.animationDelay = `${Math.random() * 2}s`;
+            container.appendChild(drop);
+        }
+    }
+
+    function initLevel() {
+        const levelConfig = levels[currentLevel];
+        const board = document.getElementById('game-board');
+        const savedContainer = document.getElementById('saved-animals');
+
+        if (currentLevel === 0) {
+            document.body.classList.remove('clear-sky');
+            document.getElementById('rainbow').classList.remove('visible');
+        }
+        createRain(levelConfig.drops);
+
+        board.innerHTML = '';
+        savedContainer.innerHTML = '';
+        moves = 0;
+        matchedPairs = 0;
+        flippedCards = [];
+        lockBoard = false;
+
+        document.getElementById('level-display').textContent = `Fase: ${currentLevel + 1}/${levels.length}`;
+        document.getElementById('moves-display').textContent = `Jogadas: 0`;
+        document.getElementById('total-stars-display').textContent = `⭐ ${totalStars}`;
+        board.style.gridTemplateColumns = `repeat(${levelConfig.cols}, 1fr)`;
+
+        const selectedAnimals = allAnimals.slice(0, levelConfig.pairs);
+        const deck = shuffleFisherYates([...selectedAnimals, ...selectedAnimals]);
+
+        deck.forEach((animal, index) => {
+            const card = document.createElement('div');
+            card.classList.add('card');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('role', 'button');
+            card.setAttribute('aria-label', `Carta ${index + 1} virada para baixo`);
+            card.dataset.name = animal.name;
+            card.dataset.arkIcon = animal.isSvg ? animal.miniIcon : animal.icon;
+
+            card.innerHTML = `
+                <div class="card-face card-front" aria-hidden="true">🐾</div>
+                <div class="card-face card-back" aria-hidden="true">
+                    <span class="animal-emoji">${animal.icon}</span>
+                    <span class="animal-name">${animal.name}</span>
+                </div>
+            `;
+
+            card.addEventListener('click', () => flipCard(card));
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    flipCard(card);
+                }
+            });
+
+            board.appendChild(card);
+        });
+    }
+
+    function flipCard(card) {
+        if (lockBoard || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+        playSound('flip');
+        card.classList.add('flipped');
+        card.setAttribute('aria-label', `Animal: ${card.dataset.name}`);
+        flippedCards.push(card);
+
+        if (flippedCards.length === 2) {
+            moves++;
+            document.getElementById('moves-display').textContent = `Jogadas: ${moves}`;
+            checkMatch();
+        }
+    }
+
+    function checkMatch() {
+        const [card1, card2] = flippedCards;
+        const isMatch = card1.dataset.name === card2.dataset.name;
+
+        if (isMatch) {
+            playSound('match');
+            card1.classList.add('matched');
+            card2.classList.add('matched');
+            card1.setAttribute('aria-label', `Par encontrado: ${card1.dataset.name}`);
+            card2.setAttribute('aria-label', `Par encontrado: ${card2.dataset.name}`);
+
+            const savedContainer = document.getElementById('saved-animals');
+            const icon = document.createElement('span');
+            icon.classList.add('saved-animal-icon');
+            icon.title = card1.dataset.name;
+            icon.textContent = card1.dataset.arkIcon;
+            savedContainer.appendChild(icon);
+
+            matchedPairs++;
+            flippedCards = [];
+
+            if (matchedPairs === levels[currentLevel].pairs) {
+                setTimeout(showLevelComplete, 550);
+            }
+        } else {
+            lockBoard = true;
+            setTimeout(() => {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                card1.setAttribute('aria-label', 'Carta virada para baixo');
+                card2.setAttribute('aria-label', 'Carta virada para baixo');
+                flippedCards = [];
+                lockBoard = false;
+            }, 850);
+        }
+    }
+
+    function calculateStars(movesCount, levelConfig) {
+        if (movesCount <= levelConfig.threeStarMoves) return 3;
+        if (movesCount <= levelConfig.twoStarMoves) return 2;
+        return 1;
+    }
+
+    function showLevelComplete() {
+        playSound('win');
+        const levelConfig = levels[currentLevel];
+        const earned = calculateStars(moves, levelConfig);
+        totalStars += earned;
+        document.getElementById('total-stars-display').textContent = `⭐ ${totalStars}`;
+
+        // Se concluiu a última fase, para a chuva e abre o arco-íris
+        if (currentLevel === levels.length - 1) {
+            document.getElementById('rain-container').innerHTML = '';
+            document.body.classList.add('clear-sky');
+            document.getElementById('rainbow').classList.add('visible');
+        }
+
+        document.getElementById('modal-title').textContent = levelConfig.title;
+        document.getElementById('stars-earned').textContent = '⭐'.repeat(earned) + '☆'.repeat(3 - earned);
+        document.getElementById('modal-message').textContent = `Você salvou os ${levelConfig.pairs} pares em ${moves} jogadas!`;
+        document.getElementById('bible-fact').textContent = levelConfig.fact;
+
+        setupQuiz(levelConfig.quiz);
+
+        const nextBtn = document.getElementById('next-btn');
+        nextBtn.disabled = true; // Habilita após responder o mini-quiz
+        if (currentLevel < levels.length - 1) {
+            nextBtn.textContent = "Próxima Fase ➡️";
+        } else {
+            nextBtn.textContent = "Jogar Novamente 🔄";
+        }
+
+        document.getElementById('modal-overlay').style.display = 'flex';
+
+        // Leva o foco para a primeira opção do quiz (o foco só funciona com o modal já visível)
+        const firstQuizBtn = document.querySelector('.quiz-btn');
+        if (firstQuizBtn) firstQuizBtn.focus();
+    }
+
+    function setupQuiz(quizData) {
+        const qQuestion = document.getElementById('quiz-question');
+        const qOptions = document.getElementById('quiz-options');
+        const qFeedback = document.getElementById('quiz-feedback');
+        const nextBtn = document.getElementById('next-btn');
+
+        qQuestion.textContent = `❓ Desafio Valendo +1 ⭐: ${quizData.question}`;
+        qOptions.innerHTML = '';
+        qFeedback.textContent = '';
+
+        // Marca qual opção é a correta ANTES de embaralhar, para a posição não entregar a resposta
+        const choices = quizData.options.map((text, idx) => ({ text, isCorrect: idx === quizData.correct }));
+        const shuffled = shuffleFisherYates(choices);
+        const buttons = [];
+
+        shuffled.forEach((choice) => {
+            const btn = document.createElement('button');
+            btn.classList.add('quiz-btn');
+            btn.textContent = choice.text;
+            buttons.push({ btn, isCorrect: choice.isCorrect });
+            btn.onclick = () => {
+                const allBtns = qOptions.querySelectorAll('.quiz-btn');
+                allBtns.forEach(b => b.disabled = true);
+
+                if (choice.isCorrect) {
+                    btn.classList.add('correct');
+                    playSound('bonus');
+                    totalStars += 1;
+                    document.getElementById('total-stars-display').textContent = `⭐ ${totalStars}`;
+                    qFeedback.style.color = '#155724';
+                    qFeedback.textContent = '🎉 Parabéns! Você ganhou +1 Estrela Bônus!';
+                } else {
+                    btn.classList.add('wrong');
+                    buttons.find(b => b.isCorrect).btn.classList.add('correct');
+                    qFeedback.style.color = '#721c24';
+                    qFeedback.textContent = 'Quase! A resposta certa ficou marcada em verde.';
+                }
+
+                if (currentLevel === levels.length - 1) {
+                    qFeedback.textContent += ` Placar Final: ${totalStars} de 12 ⭐!`;
+                }
+
+                nextBtn.disabled = false;
+                nextBtn.focus();
+            };
+            qOptions.appendChild(btn);
+        });
+    }
+
+    function nextStep() {
+        document.getElementById('modal-overlay').style.display = 'none';
+        if (currentLevel < levels.length - 1) {
+            currentLevel++;
+        } else {
+            currentLevel = 0;
+            totalStars = 0;
+        }
+        initLevel();
+    }
+
+    initLevel();
+</script>
+</body>
+</html>
